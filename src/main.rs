@@ -3,15 +3,28 @@ use tokio::{
     net::{TcpListener, TcpStream},
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     time::sleep,
+    runtime::Builder,
 };
-
 use std::time::Duration;
+use std::thread;
 
-#[tokio::main]
-async fn main() {
+fn main() {
+    // Create a multi-threaded runtime
+    let runtime = Builder::new_multi_thread()
+        .worker_threads(4)  // Specify the number of worker threads
+        .enable_all()
+        .build()
+        .unwrap();
+
+    // Run the async main function on the multi-threaded runtime
+    runtime.block_on(async_main());
+}
+
+async fn async_main() {
     let listener = TcpListener::bind("127.0.0.1:7878").await.unwrap();
     println!("Http server is listening on 127.0.0.1:7878");
-
+    
+    println!("the main loop thread is:{:?}",thread::current().name().unwrap());
     loop {
         let (stream, _) = listener.accept().await.unwrap();
         tokio::spawn(async move {
@@ -20,9 +33,8 @@ async fn main() {
     }
 }
 
-
 async fn handle_connection(mut stream: TcpStream) {
-    let mut  buff_reader = BufReader::new(&mut stream);
+    let mut buff_reader = BufReader::new(&mut stream);
     let mut request_line = String::new();
     buff_reader.read_line(&mut request_line).await.unwrap();
 
@@ -42,6 +54,5 @@ async fn handle_connection(mut stream: TcpStream) {
     );
 
     stream.write_all(response.as_bytes()).await.unwrap();
-    println!("{request_line} has responsed");
+    println!("Thread name {:?}_{:?}  {request_line} has responded", thread::current().name().unwrap(), thread::current().id());
 }
-
